@@ -17,7 +17,7 @@ std::ofstream writeFile;
 
 void readValuesFromFile(const char *, const char *, std::ifstream &, uint16_t *, uint16_t *, ZZ &, ZZ &, ZZ &, ZZ &);
 void gen_k_inverse_k_r(ZZ &, ZZ &, ZZ &);
-void readMessageToSign(std::string *, std::ifstream &);
+void readMessageToSign(std::string *, const char *, std::ifstream &);
 void signMessage(std::string, const char *, std::ofstream &);
 
 int main(int argc, char const *argv[]) {
@@ -31,7 +31,7 @@ int main(int argc, char const *argv[]) {
   readValuesFromFile("qpg_values.txt", "SignatoryPrivateKey.txt", readFile, &L, &N, q, p, g, x);
   //std::cout << "L = " << L << "\n" << "N = " << N << "\n" << "q = " << q  << "\n" << "p = " << p << "\n" << "g = " << g << "\n" << "x = " << x << "\n";
   gen_k_inverse_k_r(k, k_inv, r);
-  readMessageToSign(&messageToSign_str, readFile);
+  readMessageToSign(&messageToSign_str, argv[1], readFile);
   signMessage(messageToSign_str, "signature.txt", writeFile);
 
   return 0;
@@ -74,8 +74,8 @@ void gen_k_inverse_k_r(ZZ &k, ZZ &k_inv, ZZ &r) {
   rem(r, PowerMod(g, k, p), q);
 }
 
-void readMessageToSign(std::string *out, std::ifstream &in) {
-  in.open("message.txt");
+void readMessageToSign(std::string *out, const char *msg, std::ifstream &in) {
+  in.open(msg);
   if(!in.is_open()) {
     std::cout << "Couldn't open message file to read!" << "\n";
     exit(5);
