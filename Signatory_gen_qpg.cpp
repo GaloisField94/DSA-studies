@@ -14,10 +14,8 @@ uint16_t parameters[4][3] = {{1024, 160, 40},
                              {3072, 256, 64}};
 
 uint16_t L, N, MR_iterations, seedlen_bits, seedlen_bytes, outlen_bits, outlen_bytes, n, b, counter;
-ZZ p, q, g, domainParameterSeed_zz, x, y, k, k_inv, r, U_zz, offset, tmp_zz;
+ZZ p, q, g, domainParameterSeed_zz, x, y, U_zz, offset, tmp_zz;
 byte *U_str, *domainParameterSeed_str, *tmp_str;
-std::string messageToSign_str;
-std::ifstream readFile;
 std::ofstream writeFile;
 bool flag_q, flag_p;
 
