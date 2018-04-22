@@ -14,18 +14,20 @@ uint16_t parameters[4][3] = {{1024, 160, 40},
                              {3072, 256, 64}};
 
 uint16_t L, N, MR_iterations, seedlen_bits, seedlen_bytes, outlen_bits, outlen_bytes, n, b, counter;
-ZZ p, q, g, domainParameterSeed_zz, x, y, k, k_inv, U_zz, offset, tmp_zz;
+ZZ p, q, g, domainParameterSeed_zz, x, y, k, k_inv, r, U_zz, offset, tmp_zz;
 byte *U_str, *domainParameterSeed_str, *tmp_str;
 std::string messageToSign_str;
-std::ifstream readMessageFile;
-std::ofstream writeGeneratedValues;
+std::ifstream readFile;
+std::ofstream writeFile;
 bool flag_q, flag_p;
 
-std::string readMessageToSign(std::ifstream &);
 void gen_q_and_p(ZZ &, ZZ &, ZZ &, uint16_t *);
 void gen_g(ZZ &);
 void gen_x_y(ZZ &, ZZ &);
-void gen_k_and_inverse_k(ZZ &, ZZ &);
+void gen_k_inverse_k_r(ZZ &, ZZ &, ZZ &);
+void sendValuesToFile(const char *, std::ofstream &);
+void readMessageToSign(std::string *, std::ifstream &);
+void signMessage(std::string, const char *, std::ofstream &);
 
 int main(int argc, char const *argv[]) {
   if(!gcry_check_version(GCRYPT_VERSION)) {
@@ -59,16 +61,6 @@ int main(int argc, char const *argv[]) {
   // std::cout << "n = " << n << "\n";
   // std::cout << "b = " << b << "\n";
 
-  //reading message to string
-  readMessageFile.open("message.txt");
-  if(!readMessageFile.is_open()) {
-    std::cout << "Couldn't open message file to read!" << "\n";
-    return 0;
-  }
-  messageToSign_str = readMessageToSign(readMessageFile);
-  readMessageFile.close();
-  //std::cout << messageToSign_str;
-
   //obtaining q and p
   gen_q_and_p(q, p, domainParameterSeed_zz, &counter);
   //std::cout << "q = " << q << "\n" << "is q prime? " << flag_q << "\n" << "q is a " << NumBits(q) << "-bit number" << "\n";
@@ -77,23 +69,13 @@ int main(int argc, char const *argv[]) {
   //std::cout << "g = " << g << "\n";
   gen_x_y(x, y);
   //std::cout << "x = " << x << "\n" << "y = " << y << "\n";
-  gen_k_and_inverse_k(k, k_inv);
-  std::cout << "k = " << k << "\n" << "k_inv = " << k_inv << "\n";
-
-  writeGeneratedValues.open("generated_values.txt");
-  if(!writeGeneratedValues.is_open()) {
-    std::cout << "Couldn't open values file to write!" << "\n";
-    return 0;
-  }
-  writeGeneratedValues << q << "\n" << p << "\n" << g << "\n" << domainParameterSeed_zz << "\n" << counter << "\n" << y << "\n";
+  gen_k_inverse_k_r(k, k_inv, r);
+  //std::cout << "k = " << k << "\n" << "k_inv = " << k_inv << "\n" << "r = " << r << "\n";
+  sendValuesToFile("generated_values.txt", writeFile);
+  readMessageToSign(&messageToSign_str, readFile);
+  signMessage(messageToSign_str, "signature.txt", writeFile);
 
   return 0;
-}
-
-std::string readMessageToSign(std::ifstream& in) {
-    std::stringstream sstr;
-    sstr << in.rdbuf();
-    return sstr.str();
 }
 
 void gen_q_and_p(ZZ &q, ZZ &p, ZZ &domainParameterSeed_zz, uint16_t *counter) {
@@ -171,10 +153,53 @@ void gen_x_y(ZZ &x, ZZ &y) {
   PowerMod(y, g, x, p);
 }
 
-void gen_k_and_inverse_k(ZZ &k, ZZ &k_inv) {
+void gen_k_inverse_k_r(ZZ &k, ZZ &k_inv, ZZ &r) {
   ZZ c;
   RandomLen(c, N + 64);
   rem(k, c, q - 1);
   k++;
   InvMod(k_inv, k, q);
+  rem(r, PowerMod(g, k, p), q);
+}
+
+void sendValuesToFile(const char *fileName, std::ofstream &out) {
+  out.open(fileName);
+  if(!out.is_open()) {
+    std::cout << "Couldn't open values file to write!" << "\n";
+    exit(4);
+  }
+  out << q << "\n" << p << "\n" << g << "\n"
+  << domainParameterSeed_zz << "\n" << counter << "\n" << y << "\n"
+  << k << "\n" << k_inv << "\n" << r << "\n";
+  out.close();
+}
+
+void readMessageToSign(std::string *out, std::ifstream &in) {
+  in.open("message.txt");
+  if(!in.is_open()) {
+    std::cout << "Couldn't open message file to read!" << "\n";
+    exit(5);
+  }
+  std::stringstream sstr;
+  sstr << in.rdbuf();
+  *out = sstr.str();
+  in.close();
+}
+
+void signMessage(std::string M, const char *fileName, std::ofstream &out) {
+  ZZ z_zz, s;
+  byte *z_str = (byte *)malloc(sizeof *z_str * outlen_bytes);
+  gcry_md_hash_buffer(chosenHashFunction, z_str, M.c_str(), M.size());
+  ZZFromBytes(z_zz, z_str, outlen_bytes);
+  if(N < outlen_bits) trunc(z_zz, z_zz, N);
+  else trunc(z_zz, z_zz, outlen_bits);
+  rem(s, k_inv * (z_zz + (x * r)), q);
+
+  out.open(fileName);
+  if(!out.is_open()) {
+    std::cout << "Couldn't open signature file to write!" << "\n";
+    exit(6);
+  }
+  out << s << "\n";
+  out.close();
 }
