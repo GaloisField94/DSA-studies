@@ -77,7 +77,7 @@ void gen_q_and_p(ZZ &q, ZZ &p, ZZ &domainParameterSeed_zz, uint16_t *counter) {
       BytesFromZZ(domainParameterSeed_str, domainParameterSeed_zz, seedlen_bytes);
       gcry_md_hash_buffer(chosenHashFunction, U_str, domainParameterSeed_str, seedlen_bytes);
       ZZFromBytes(U_zz, U_str, outlen_bytes);
-      if(seedlen_bits < outlen_bits) trunc(U_zz, U_zz, seedlen_bits);
+      rem(U_zz, U_zz, power2_ZZ(N-1));
       q = power(ZZ(2), N - 1) + U_zz + 1 - rem(U_zz, 2);
       if(NumBits(q) != N) continue;
       flag_q = ProbPrime(q, MR_iterations);
